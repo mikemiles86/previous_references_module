@@ -1,0 +1,24 @@
+<?php
+  /**
+	* @file
+	* Schema definitions install/update/uninstall hooks . 
+	*/
+  
+	/**
+  * Implements fo hook_install()
+  */
+  function previous_references_install() {
+    //na da
+  }
+ 
+  /**
+   * Implements hook_uninstall()
+   */
+  function previous_references_uninstall() {
+    //delete cache
+		cache_clear_all('previous_references_data','cache');
+		//delete variables
+		variable_del('previous_references_default_max');
+		variable_del('previous_references_default_type');
+		variable_del('previous_references_settings');
+  }

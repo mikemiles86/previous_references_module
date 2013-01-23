@@ -1,5 +1,23 @@
 <?php
 module_load_include('inc','previous_references','previous_references.pages');
+
+/**
+ * Instance of hook_menu
+ */
+function previous_references_menu(){
+	$items = array();
+	$items['admin/config/content/previous-references'] = array(
+		'title'	=> t('Previous References Settings'),
+		'description'	=> t('Configure the Previous References settings.'),
+		'page callback'	=> 'drupal_get_form',
+		'page arguments'	=> array('previous_references_admin_settings'),
+		'access arguments'	=> array('access administration pages'),
+		'file'			=> 'previous_references.admin.inc',
+	);
+	
+	return $items;
+}
+
 /**
  * Instance of hook_form_alter
  */
@@ -25,60 +43,80 @@ function previous_references_form_alter(&$form,&$form_state,$form_id){
 		//pass along our array of reference fields
 		$form['#reference_fields'] = $reference_fields;
 		//add custom javascript
-		drupal_add_js(drupal_get_path('module','previous_references').'/previous-reference.js');
+		drupal_add_js(drupal_get_path('module','previous_references').'/previous_references.js');
 		//add our custom submit function
 		$form['#submit'][] = 'previous_references_form_submit';
 	}
 }
 
 /**
+ * submit function for forms with entity fields
+ */
+function previous_references_form_submit(&$form,&$form_state){
+	//get all the reference fields that are being tracked
+	$reference_fields = $form['#reference_fields'];
+	//remove these fields from cache so that they can be recalculated
+	previous_references_delete_previous($reference_fields);
+}
+
+/**
  * Instance of hook_form_FORM_ID_alter
  */
 function previous_references_form_field_ui_field_edit_form_alter(&$form,&$form_state){
+	//is the field an entity reference field?
 	if ($form['#field']['type'] == 'entityreference'){
+		//add a form section to set previous references settings for this instance of this field
 		$form['field']['previous_references'] = array(
 			'#type'		=> 'fieldset',
-			'#title'	=> 'Previous Selections',
-			'#description'	=> 'configure settings for displaying previous selections for this field',
+			'#title'	=> t('Previous Selections'),
+			'#description'	=> t('configure settings for displaying previous selections for this field'),
 		);
 		
+		//get the field key for this instance
 		$field_key = previous_references_get_field_key($form['#field']['field_name'],$form['#instance']['entity_type'],$form['#instance']['bundle']);
-
+		//get the settings for this field instance (load defaults if not found)
 		$settings = previous_references_get_settings($field_key,true);
 		
-		
+		//build settings fields.
 		$form['field']['previous_references']['previous_references_type'] = array(
 			'#type'		=> 'select',
-			'#title'	=> 'Selection Order',
-			'#description'	=> 'select how the previous selections will be ordered',
+			'#title'	=> t('Selection Order'),
+			'#description'	=> t('select how the previous selections will be ordered'),
 			'#options'	=> array(
-				'none'	=> 'Do not display',
-				'last'	=> 'Last selected',
-				'most popular'	=> 'Most popular selections',
-				'newest'	=> 'Newest selections',
+				'none'	=> t('Do not display'),
+				'last'	=> t('Last selected'),
+				'most popular'	=> t('Most popular selections'),
+				'newest'	=> t('Newest selections'),
 			),
 			'#default_value'	=> $settings['type'],
 		);
 		
 		$form['field']['previous_references']['previous_references_max'] = array(
 			'#type'		=> 'select',
-			'#title'	=> 'Number of Selections',
-			'#description'	=> 'select how many selections to display',
+			'#title'	=> t('Number of Selections'),
+			'#description'	=> t('select how many selections to display'),
 			'#options'	=> range(0,10),
 			'#default_value'	=> $settings['max'],
 		);
-		
+		//add custom submit function
 		$form['#submit'][] = 'previous_references_form_field_settings_submit';
 	}
 }
 
+/**
+ * Submit function for field settings form
+ */
 function previous_references_form_field_settings_submit(&$form,&$form_state){
+	//get the field key
 	$field_key = previous_references_get_field_key($form['#field']['field_name'],$form['#instance']['entity_type'],$form['#instance']['bundle']);
+	//get the old settings
 	$settings = previous_references_get_settings($field_key,true);
+	//get the new submitted settings
 	$settings['type'] = $form_state['values']['field']['previous_references']['previous_references_type'];
 	$settings['max']	= $form_state['values']['field']['previous_references']['previous_references_max'];
-
+	//save the settings
 	previous_references_set_settings($field_key,$settings);
+	//delete the cahce for this field since settings have changed
 	previous_references_delete_previous(array($field_key));
 }
 	
@@ -97,13 +135,8 @@ function previous_references_field_widget_form_alter(&$element,&$form_state,$con
 			$rendered_previous = previous_references_render_previous($field_key,$previous_references);
 			$suffix = isset($element['target_id']['#suffix']) ? $element['target_id']['#suffix']:'';
 			$element['target_id']['#suffix'] = $suffix.$rendered_previous;
+			//add a custom class to this field so it can be targeted by our js.
+			$element['target_id']['#attributes']['class'][] = 'pr-'.$context['field']['field_name'];
 		}
 	}
-}
-
-function previous_references_form_submit(&$form,&$form_state){
-	//get all the reference fields that are being tracked
-	$reference_fields = $form['#reference_fields'];
-	//remove these fields from cache so that they can be recalculated
-	previous_references_delete_previous($reference_fields);
 }
