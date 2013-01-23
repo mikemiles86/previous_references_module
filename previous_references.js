@@ -9,8 +9,22 @@
 			//get the target field and the value
 			var target_field = $(this).attr('data-target-field');
 			var field_value	= $(this).attr('data-field-value');
-			//set target field to value
-			$('.'+target_field).val(field_value);
+			//get the field type
+			var field_type = $('input.'+target_field).attr('type');
+			switch (field_type){
+				case 'radio':
+					//need to find the one that has the value we are loking for
+					$('input.'+target_field).each(function(){
+						if ($(this).val() == field_value){
+							$(this).attr('checked','checked');
+						}
+					});
+					break;
+				default:
+					//set target field to value
+					$('.'+target_field).val(field_value);
+					break;
+			}
 		});
     }
   }

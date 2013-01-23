@@ -238,14 +238,15 @@
 	 *
 	 * @param string $field_key
 	 *	the key of a particular field instance
-	 *
+	 * @params string $field_Type
+	 *	what type of field the entity reference is
 	 * @param array $previous_references
 	 *	array of previous reference selections
 	 *
 	 * @return string 
 	 *	return block of HTML
 	 */
-	function previous_references_render_previous($field_key,$previous_references){
+	function previous_references_render_previous($field_key,$field_type,$previous_references){
 		//get settings for field (to display title)
 		$settings = previous_references_get_settings($field_key);
 		//break the key into its parts
@@ -258,6 +259,16 @@
 		$html.='<ul class="tips">';
 		//loop through the slections to build links
 		foreach ($previous_references as $entity_id=>$title){
+			switch ($field_type){
+				case 'select':
+				case 'radios':
+					$value = $entity_id;
+					break;
+				case 'textfield':
+				default:
+					$value = preg_replace('/\[\\d+\]$/','',$title).' ('.$entity_id.')';
+					break;
+			}
 			//build link attributes
 			$attributes = array(
 				//class, so link can be trageted by js
@@ -265,10 +276,10 @@
 				//target field data attribute for js
 				'data-target-field' => 'pr-'.$key_parts['field_name'],
 				//field value data attribute for js
-				'data-field-value'  => preg_replace('/\[\\d+\]$/','',$title).' ('.$entity_id.')',
+				'data-field-value'  => $value,
 			);
 			//add link to html
-			$html .='<li>'.l($title,'#',array('attributes'=>$attributes)).'</li>';
+			$html .='<li>'.l($title,'',array('attributes'=>$attributes)).'</li>';
 		}
 		$html.='</ul></div>';
 		//return the html

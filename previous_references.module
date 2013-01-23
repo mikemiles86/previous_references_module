@@ -31,7 +31,7 @@ function previous_references_form_alter(&$form,&$form_state,$form_id){
 			//loop though field info to find entity reference fields
 			foreach ($entity_field_info as $field_id => $field_data){
 				//does it have a widget module and is it entityreference?
-				if (isset($field_data['widget']['module']) && ($field_data['widget']['module']=='entityreference')){
+				if (isset($field_data['display']['default']['module']) && ($field_data['display']['default']['module']=='entityreference')){
 					$reference_fields[] = previous_references_get_field_key($field_id,$form['#entity_type'],$form['#bundle']);
 				}
 			}
@@ -129,14 +129,29 @@ function previous_references_field_widget_form_alter(&$element,&$form_state,$con
 	if (isset($context['field']['type']) && ($context['field']['type'] == 'entityreference')){
 		//get all previous references for this field (if available)
 		$field_key = previous_references_get_field_key($context['field']['field_name'],$context['instance']['entity_type'],$context['instance']['bundle']);
-		
 		if ($previous_references = previous_references_get_previous($field_key)){
-			//add references to the suffix of this field
-			$rendered_previous = previous_references_render_previous($field_key,$previous_references);
-			$suffix = isset($element['target_id']['#suffix']) ? $element['target_id']['#suffix']:'';
-			$element['target_id']['#suffix'] = $suffix.$rendered_previous;
-			//add a custom class to this field so it can be targeted by our js.
-			$element['target_id']['#attributes']['class'][] = 'pr-'.$context['field']['field_name'];
+			if (isset($element['target_id'])){
+				$type = $element['target_id']['#type'];
+			}else if (isset($element['#type'])){
+				$type = $element['#type'];
+			}
+		
+			$rendered_previous = previous_references_render_previous($field_key,$type,$previous_references);
+			switch ($type){
+				case 'select':
+				case 'radios':
+					$suffix = isset($element['#suffix']) ? $element['#suffix']:'';
+					$element['#suffix'] = $suffix.$rendered_previous;
+					//add a custom class to this field so it can be targeted by our js.
+					$element['#attributes']['class'][] = 'pr-'.$context['field']['field_name'];
+					break;
+				case 'textfield':
+					$suffix = isset($element['target_id']['#suffix']) ? $element['target_id']['#suffix']:'';
+					$element['target_id']['#suffix'] = $suffix.$rendered_previous;
+					//add a custom class to this field so it can be targeted by our js.
+					$element['target_id']['#attributes']['class'][] = 'pr-'.$context['field']['field_name'];
+					break;
+			}
 		}
 	}
 }
