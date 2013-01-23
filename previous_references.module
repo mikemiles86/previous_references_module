@@ -1,0 +1,109 @@
+<?php
+module_load_include('inc','previous_references','previous_references.pages');
+/**
+ * Instance of hook_form_alter
+ */
+function previous_references_form_alter(&$form,&$form_state,$form_id){
+	//going to collect an array of reference fields in this form (if any)
+	$reference_fields 	= array();
+	//does this form have an entity?
+	if (isset($form['#entity_type'])){
+		//check to see if entity has node reference fields
+		if ($entity_field_info = field_info_instances($form['#entity_type'],$form['#bundle'])){
+			//loop though field info to find entity reference fields
+			foreach ($entity_field_info as $field_id => $field_data){
+				//does it have a widget module and is it entityreference?
+				if (isset($field_data['widget']['module']) && ($field_data['widget']['module']=='entityreference')){
+					$reference_fields[] = previous_references_get_field_key($field_id,$form['#entity_type'],$form['#bundle']);
+				}
+			}
+		}
+	}
+	
+	//did we find any refence fields in this form?
+	if (sizeof($reference_fields)>0){
+		//pass along our array of reference fields
+		$form['#reference_fields'] = $reference_fields;
+		//add custom javascript
+		drupal_add_js(drupal_get_path('module','previous_references').'/previous-reference.js');
+		//add our custom submit function
+		$form['#submit'][] = 'previous_references_form_submit';
+	}
+}
+
+/**
+ * Instance of hook_form_FORM_ID_alter
+ */
+function previous_references_form_field_ui_field_edit_form_alter(&$form,&$form_state){
+	if ($form['#field']['type'] == 'entityreference'){
+		$form['field']['previous_references'] = array(
+			'#type'		=> 'fieldset',
+			'#title'	=> 'Previous Selections',
+			'#description'	=> 'configure settings for displaying previous selections for this field',
+		);
+		
+		$field_key = previous_references_get_field_key($form['#field']['field_name'],$form['#instance']['entity_type'],$form['#instance']['bundle']);
+
+		$settings = previous_references_get_settings($field_key,true);
+		
+		
+		$form['field']['previous_references']['previous_references_type'] = array(
+			'#type'		=> 'select',
+			'#title'	=> 'Selection Order',
+			'#description'	=> 'select how the previous selections will be ordered',
+			'#options'	=> array(
+				'none'	=> 'Do not display',
+				'last'	=> 'Last selected',
+				'most popular'	=> 'Most popular selections',
+				'newest'	=> 'Newest selections',
+			),
+			'#default_value'	=> $settings['type'],
+		);
+		
+		$form['field']['previous_references']['previous_references_max'] = array(
+			'#type'		=> 'select',
+			'#title'	=> 'Number of Selections',
+			'#description'	=> 'select how many selections to display',
+			'#options'	=> range(0,10),
+			'#default_value'	=> $settings['max'],
+		);
+		
+		$form['#submit'][] = 'previous_references_form_field_settings_submit';
+	}
+}
+
+function previous_references_form_field_settings_submit(&$form,&$form_state){
+	$field_key = previous_references_get_field_key($form['#field']['field_name'],$form['#instance']['entity_type'],$form['#instance']['bundle']);
+	$settings = previous_references_get_settings($field_key,true);
+	$settings['type'] = $form_state['values']['field']['previous_references']['previous_references_type'];
+	$settings['max']	= $form_state['values']['field']['previous_references']['previous_references_max'];
+
+	previous_references_set_settings($field_key,$settings);
+	previous_references_delete_previous(array($field_key));
+}
+	
+
+/**
+ * Instance of hook_field_widget_form_alter
+ */
+function previous_references_field_widget_form_alter(&$element,&$form_state,$context){
+	//is this field an entityreference field
+	if (isset($context['field']['type']) && ($context['field']['type'] == 'entityreference')){
+		//get all previous references for this field (if available)
+		$field_key = previous_references_get_field_key($context['field']['field_name'],$context['instance']['entity_type'],$context['instance']['bundle']);
+		
+		if ($previous_references = previous_references_get_previous($field_key)){
+			//add references to the suffix of this field
+			$rendered_previous = previous_references_render_previous($field_key,$previous_references);
+			$suffix = isset($element['target_id']['#suffix']) ? $element['target_id']['#suffix']:'';
+			$element['target_id']['#suffix'] = $suffix.$rendered_previous;
+		}
+	}
+}
+
+function previous_references_form_submit(&$form,&$form_state){
+	//get all the reference fields that are being tracked
+	$reference_fields = $form['#reference_fields'];
+	//remove these fields from cache so that they can be recalculated
+	previous_references_delete_previous($reference_fields);
+}

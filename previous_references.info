@@ -1,0 +1,8 @@
+name = Previous References
+project = "previous_references"
+package = Fields
+description = Display the previous references below an entity reference field
+dependencies[] = entityreference
+configure = admin/config/content/previous-references
+core = 7.x
+
