@@ -95,7 +95,7 @@
 	 */
 	function previous_references_set_settings($field_key,$settings){
 		$previous_references_settings = variable_get('previous_references_settings',array());
-		$previous_references_settings[$settings_key] = $settings;
+		$previous_references_settings[$field_key] = $settings;
 		variable_set('previous_references_settings',$previous_references_settings);
 	}
 	
